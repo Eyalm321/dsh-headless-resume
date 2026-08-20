@@ -1,0 +1,16 @@
+# Replace the upstream one-shot runner with the resumable one.
+#
+# The row keeps `inject: [headlessStartup]` and the same `task` expression, so the
+# task still arrives from the stock command-line provider — only the session
+# identity changes.
+- id: headless-runner
+  disabled: true
+
+- insert:
+    - id: headless-resume-runner
+      name: 'dsh-headless-resume'
+      inject: [headlessStartup]
+      config:
+        task: !!js ctx.headlessStartup.task
+        sessionKey: !!js process.env.DSH_SESSION_KEY
+        announce: !!js process.env.DSH_ANNOUNCE_SESSION === '1'

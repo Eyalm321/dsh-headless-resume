@@ -1,0 +1,26 @@
+{
+  "name": "dsh-headless-resume",
+  "version": "0.1.0",
+  "description": "A resumable one-shot runner for the DeepSeek Harness: keeps durable session state across headless invocations by resuming a persisted session instead of minting a fresh one.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./index": "./src/index.js"
+  },
+  "files": ["src", "cordis.patch.yml", "README.md", "LICENSE"],
+  "scripts": { "test": "node --test test/*.test.js" },
+  "keywords": ["dsh", "deepseek-harness", "headless", "session", "resume"],
+  "peerDependencies": {
+    "@deepseek-ai/dsh-agent": "*",
+    "@deepseek-ai/dsh-llm": "*",
+    "@deepseek-ai/dsh-session": "*",
+    "@deepseek-ai/schemastery": "*"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-agent": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-llm": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-session": "^0.1.0-rc.6",
+    "@deepseek-ai/schemastery": "^3.18.1"
+  }
+}

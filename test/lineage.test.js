@@ -77,3 +77,40 @@ test('an undispatched run creates exactly what it did before', async () => {
   });
   assert.deepEqual(seen.meta, { cwd: '/tmp/y' });
 });
+
+test('a dispatched child carries a descriptor, or enumeration calls it corrupt', async () => {
+  let seen;
+  const agents = { create: async (o) => { seen = o; return { agent: { session: {} } }; } };
+  await acquireAgent({
+    agents, sessionId: undefined, newSessionId: () => 's', cwd: '/tmp/x',
+    agentOptions: { provider: 'claude-cli', model: 'claude-opus-5' }, setup: () => {},
+    persistence: { list: async () => [] },
+    env: { DSH_PARENT_SESSION: 'p1', DSH_SESSION_KEY: 'project:tooling:repo:widgets' },
+  });
+  assert.equal(seen.seed.length, 1);
+  const d = seen.seed[0];
+  assert.equal(d.type, 'subagent/descriptor');
+  assert.equal(d.seq, 0, 'a seed must be contiguous from zero');
+  assert.equal(d.data.version, 2);
+  assert.equal(d.data.mode, 'continuable', 'a dispatched agent keeps its thread');
+  assert.equal(d.data.label, 'project:tooling:repo:widgets');
+  assert.equal(d.data.agentProvider, 'claude-cli');
+  assert.equal(seen.meta.seedLength, 1, 'the boundary between seed and child work');
+});
+
+test('an undispatched run gets no descriptor and no seed', async () => {
+  let seen;
+  const agents = { create: async (o) => { seen = o; return { agent: { session: {} } }; } };
+  await acquireAgent({
+    agents, sessionId: undefined, newSessionId: () => 's', cwd: '/tmp/y',
+    agentOptions: {}, setup: () => {}, env: {},
+  });
+  assert.equal(seen.seed, undefined);
+  assert.equal(seen.meta.seedLength, undefined);
+});
+
+test('a label is bounded, so one runaway prompt cannot become the identity', async () => {
+  const { descriptorSeed } = await import('../src/runner.js');
+  const d = descriptorSeed({ label: 'x'.repeat(400) })[0];
+  assert.ok(d.data.label.length <= 120);
+});

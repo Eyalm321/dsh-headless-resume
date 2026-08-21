@@ -73,6 +73,40 @@ export async function parentDepthOf(persistence, parentSessionId) {
   } catch { return undefined; }
 }
 
+
+/**
+ * The child's durable identity.
+ *
+ * Lineage in the header is enough to FIND a child and not enough to show one: enumeration folds
+ * the child's own log for a `subagent/descriptor`, and a candidate that serves no identity is
+ * reported as `corrupt` — which is exactly what a dispatched agent looked like once its header
+ * named a parent. The descriptor is the record of what the child is, written before its first
+ * request so a cold read reconstructs it from the log alone.
+ *
+ * `continuable` is the honest mode here: a dispatched project agent keeps its thread and can be
+ * resumed, unlike a one-shot delegation that ends with its answer.
+ *
+ * @returns {object[]} the seed events for a dispatched child, empty when not dispatched
+ */
+export function descriptorSeed({ label, provider, model, version = 2 } = {}) {
+  return [{
+    type: 'subagent/descriptor',
+    seq: 0,
+    time: Date.now(),
+    data: {
+      version,
+      mode: 'continuable',
+      // The establishing provider. These children are established by dispatch, not by a
+      // ctx.subagents provider, and naming that plainly beats borrowing a name that implies
+      // machinery this child never went through.
+      provider: 'dispatch',
+      label: String(label ?? 'dispatched agent').slice(0, 120),
+      ...provider === undefined ? {} : { agentProvider: provider },
+      ...model === undefined ? {} : { agentModel: model },
+    },
+  }];
+}
+
 /**
  * Obtain the agent for this run: resume the recorded session when there is one,
  * otherwise create a fresh session and record it.
@@ -107,6 +141,19 @@ export async function acquireAgent({ agents, sessionId, newSessionId, cwd, agent
   if (lineage.parentSession) {
     onNotice?.(`dispatched by ${lineage.parentSession}: recording this session as its child at depth ${lineage.delegationDepth}`);
   }
-  const { agent } = await agents.create({ sessionId: fresh, meta: { cwd, ...lineage }, agentOptions, setup });
+  const seed = lineage.parentSession
+    ? descriptorSeed({
+      label: env.DSH_AGENT_LABEL || env.DSH_SESSION_KEY || 'dispatched agent',
+      provider: agentOptions?.provider,
+      model: agentOptions?.model,
+    })
+    : undefined;
+  const { agent } = await agents.create({
+    sessionId: fresh,
+    meta: { cwd, ...lineage, ...seed ? { seedLength: seed.length } : {} },
+    ...seed ? { seed } : {},
+    agentOptions,
+    setup,
+  });
   return { agent, resumed: false, sessionId: fresh };
 }

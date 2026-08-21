@@ -36,6 +36,43 @@ export function summarize(events, firstSeq) {
   return { text, reason };
 }
 
+
+/**
+ * The session metadata that makes a dispatched agent a child rather than an orphan.
+ *
+ * A project agent runs as its own dsh process, so nothing connects it to the conversation that
+ * asked for it: the harness files it top-level, `subagent.list` returns nothing for the parent,
+ * and a UI cannot show the work it is doing. None of that needs inventing — the session header
+ * already persists `parentSession`, `origin` and `delegationDepth`, and the agent factory takes
+ * them at creation. They were simply never supplied, because only in-process subagents had a
+ * caller that knew the parent.
+ *
+ * The dispatcher passes DSH_PARENT_SESSION. Depth is the parent's plus one when the parent can be
+ * read, and 1 otherwise: an unreadable parent is still a child, and guessing 0 would make a
+ * dispatched agent claim to be top-level.
+ *
+ * @returns {object} meta to merge into the create call
+ */
+export function lineageMeta({ env = process.env, parentDepth } = {}) {
+  const parent = env.DSH_PARENT_SESSION?.trim();
+  if (!parent) return {};
+  return {
+    parentSession: parent,
+    origin: 'subagent',
+    delegationDepth: Number.isSafeInteger(parentDepth) && parentDepth >= 0 ? parentDepth + 1 : 1,
+  };
+}
+
+/** The parent's own depth, when its header can be read; undefined when it cannot. */
+export async function parentDepthOf(persistence, parentSessionId) {
+  if (!persistence || !parentSessionId) return undefined;
+  try {
+    const found = (await persistence.list()).find((h) => h.id === parentSessionId);
+    const depth = found?.delegationDepth ?? found?.header?.delegationDepth;
+    return Number.isSafeInteger(depth) ? depth : 0;
+  } catch { return undefined; }
+}
+
 /**
  * Obtain the agent for this run: resume the recorded session when there is one,
  * otherwise create a fresh session and record it.
@@ -47,7 +84,7 @@ export function summarize(events, firstSeq) {
  *
  * @returns {Promise<{agent: object, resumed: boolean, sessionId: string}>}
  */
-export async function acquireAgent({ agents, sessionId, newSessionId, cwd, agentOptions, setup, onNotice }) {
+export async function acquireAgent({ agents, sessionId, newSessionId, cwd, agentOptions, setup, onNotice, persistence, env = process.env }) {
   if (sessionId !== undefined) {
     try {
       const { agent } = await agents.resume({ resumeSessionId: sessionId, agentOptions, setup });
@@ -65,6 +102,11 @@ export async function acquireAgent({ agents, sessionId, newSessionId, cwd, agent
     }
   }
   const fresh = newSessionId();
-  const { agent } = await agents.create({ sessionId: fresh, meta: { cwd }, agentOptions, setup });
+  const parent = env.DSH_PARENT_SESSION?.trim();
+  const lineage = lineageMeta({ env, parentDepth: await parentDepthOf(persistence, parent) });
+  if (lineage.parentSession) {
+    onNotice?.(`dispatched by ${lineage.parentSession}: recording this session as its child at depth ${lineage.delegationDepth}`);
+  }
+  const { agent } = await agents.create({ sessionId: fresh, meta: { cwd, ...lineage }, agentOptions, setup });
   return { agent, resumed: false, sessionId: fresh };
 }

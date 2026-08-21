@@ -6,6 +6,8 @@
  *
  * @module dsh-headless-resume/runner
  */
+import { pruneStaleContext } from './staleContext.js';
+import { alignSandboxMode } from './sandboxMode.js';
 
 /**
  * Aggregate the last assistant text and turn outcome from one owned interval.
@@ -49,6 +51,14 @@ export async function acquireAgent({ agents, sessionId, newSessionId, cwd, agent
   if (sessionId !== undefined) {
     try {
       const { agent } = await agents.resume({ resumeSessionId: sessionId, agentOptions, setup });
+      // A resumed session carries runtime-context snapshots describing PREVIOUS processes
+      // (sandbox policy, cwd, model). Drop them so the agent reads the world it is in.
+      const notice = { warn: (m) => onNotice?.(m), info: (m) => onNotice?.(m), debug: () => {} };
+      pruneStaleContext(agent.session, { log: notice });
+      // A session also carries the sandbox mode it was CREATED with, which outranks the
+      // deployment default. Realign it, or a session made before the operator set
+      // DSH_PERMISSION_MODE stays restricted forever.
+      alignSandboxMode(agent.session, process.env.DSH_PERMISSION_MODE, { log: notice });
       return { agent, resumed: true, sessionId };
     } catch (error) {
       onNotice?.(`could not resume ${sessionId} (${error instanceof Error ? error.message : String(error)}); starting a new session`);

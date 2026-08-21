@@ -74,6 +74,10 @@ async function run(ctx, config, io) {
       installModelSelection(agentCtx, { current: selection, assembled: undefined });
     },
     onNotice: (message) => io.stderr.write(`dsh-headless-resume: ${message}\n`),
+
+    // Used only to read the dispatcher's own depth, so a child of a child counts correctly.
+
+    persistence: sessions,
   });
 
   // Record before driving the turn. A run that crashes mid-task has still produced

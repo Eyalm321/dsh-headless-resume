@@ -163,6 +163,8 @@ share no code — the seams between them are the harness's own.
 | **dsh-headless-resume** *(this one)* | durable one-shot sessions: resume instead of minting a new session per invocation |
 | [dsh-claude-cli-provider](https://github.com/Eyalm321/dsh-claude-cli-provider) | Claude on a subscription as a model route, with no Anthropic API key |
 | [dsh-telegram-inbox](https://github.com/Eyalm321/dsh-telegram-inbox) | a Telegram channel where one chat is one durable agent session |
+| [dsh-whatsapp-inbox](https://github.com/Eyalm321/dsh-whatsapp-inbox) | WhatsApp over Twilio, polled — no public endpoint |
+| [dsh-mcp-bridge](https://github.com/Eyalm321/dsh-mcp-bridge) | harness capabilities as MCP tools for any client |
 
 The inbox solves the same resume problem for chats, independently and for the same reason —
 `create()` on a session id that already exists collides with the stored events and aborts

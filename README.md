@@ -77,6 +77,37 @@ from the stock command-line provider. Only the session identity changes.
 keep working in the first one. The default key is the cwd for exactly this reason; a named key
 (`project:canora`) is safe as long as that name is always used from the same directory.
 
+## What else a resumed session carries
+
+Resuming restores the whole session, including facts about the process that created it.
+Two of those are corrected on every resume, because both were observed misleading a live
+agent:
+
+- **Old runtime-context snapshots.** `dsh-system-prompt` injects a "Current runtime
+  context" message describing the sandbox policy and workspace. The loop retains the
+  latest and re-emits on change, but earlier ones stay in the transcript, so a resumed
+  session can show the model a policy from a previous process. They are replaced through
+  the surface-replacement mechanism the compaction plugins use, so the originals stay in
+  the append-only log. Every snapshot is replaced, not all-but-one:
+  `RuntimeContextProjection` clears its retained pointer when a replacement cites it, so
+  the next request emits a snapshot describing the live process.
+
+- **The sandbox mode.** A session records its permission preset and sandbox mode at
+  creation, and `dsh-sandbox-policy` resolves each call as
+  `explicit grant ?? fold(session events) ?? deployment default`. The session's own
+  events therefore outrank the deployment default — by design, so an in-session override
+  survives a restart. The consequence is easy to misread: a session created while
+  `DSH_PERMISSION_MODE` was unset stays `workspace-write` forever, and the agent reports
+  a read-only filesystem that applies to nothing else on the machine. Resume appends the
+  documented log-only switch to realign it.
+
+  Alignment runs **only** when `DSH_PERMISSION_MODE` is set explicitly, and it downgrades
+  as readily as it upgrades. Silently re-privileging sessions from an ambient default is
+  not a resume helper's decision to make.
+
+> Neither problem reproduces in a fresh session, so a `resume: false` probe reports the
+> correct policy and hides the cause entirely.
+
 ## Behaviour worth knowing
 
 - **Resuming is best-effort.** A recorded session can be deleted, pruned, or written by an
@@ -117,7 +148,7 @@ AgentTeams re-attaches the same way, task DAG and dependency edges intact.
 npm test
 ```
 
-18 tests, no harness required: the resume/create decision and the `summarize` boundary are both
+35 tests, no harness required: the resume/create decision and the `summarize` boundary are both
 harness-free modules, and one test imports the plugin entrypoint so a syntax or bad-import error
 cannot ship green.
 

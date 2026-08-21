@@ -152,6 +152,22 @@ npm test
 harness-free modules, and one test imports the plugin entrypoint so a syntax or bad-import error
 cannot ship green.
 
+## Part of a set
+
+Three independent plugins, each usable on its own, that together make a headless DeepSeek
+Harness behave like a persistent assistant. They were written one problem at a time and
+share no code — the seams between them are the harness's own.
+
+| plugin | what it adds |
+|---|---|
+| **dsh-headless-resume** *(this one)* | durable one-shot sessions: resume instead of minting a new session per invocation |
+| [dsh-claude-cli-provider](https://github.com/Eyalm321/dsh-claude-cli-provider) | Claude on a subscription as a model route, with no Anthropic API key |
+| [dsh-telegram-inbox](https://github.com/Eyalm321/dsh-telegram-inbox) | a Telegram channel where one chat is one durable agent session |
+
+The inbox solves the same resume problem for chats, independently and for the same reason —
+`create()` on a session id that already exists collides with the stored events and aborts
+every turn. Both also correct what a resumed session inherits from the process that made it.
+
 ## License
 
 MIT

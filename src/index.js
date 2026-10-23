@@ -24,6 +24,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm';
 import { SessionId } from '@deepseek-ai/dsh-session';
 import { defaultIndexPath, defaultKey, lookup, record } from './sessionIndex.js';
 import { acquireAgent, summarize } from './runner.js';
+import { sessionEvents } from './sessionEvents.js';
 
 /** Stable Cordis plugin name. */
 export const name = 'headless-resume-runner';
@@ -96,7 +97,7 @@ async function run(ctx, config, io) {
   await agent.whenIdle();
   await sessions.flush(agent.session);
 
-  const outcome = summarize(agent.session.events, firstSeq);
+  const outcome = summarize(sessionEvents(agent.session) ?? [], firstSeq);
   io.stdout.write(`${outcome.text}\n`);
   if (outcome.reason?.kind === 'error') {
     io.stderr.write(`dsh: ${outcome.reason.error.code}: ${outcome.reason.error.message}\n`);

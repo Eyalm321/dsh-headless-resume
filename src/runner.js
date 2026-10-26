@@ -67,7 +67,8 @@ export function lineageMeta({ env = process.env, parentDepth } = {}) {
 export async function parentDepthOf(persistence, parentSessionId) {
   if (!persistence || !parentSessionId) return undefined;
   try {
-    const found = (await persistence.list()).find((h) => h.id === parentSessionId);
+    // 0.1 listed bare headers; 0.2 lists snapshots with the header inside.
+    const found = (await persistence.list()).find((h) => (h.header ?? h).id === parentSessionId);
     const depth = found?.delegationDepth ?? found?.header?.delegationDepth;
     return Number.isSafeInteger(depth) ? depth : 0;
   } catch { return undefined; }

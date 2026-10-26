@@ -36,6 +36,11 @@ test('the parent depth is read from the store when the parent is there', async (
   assert.equal(await parentDepthOf(persistence, 'p1'), 2);
 });
 
+test('the parent depth is read from a dsh 0.2 snapshot listing', async () => {
+  const persistence = { list: async () => [{ header: { id: 'p1', delegationDepth: 2 }, revision: 'r1' }] };
+  assert.equal(await parentDepthOf(persistence, 'p1'), 2);
+});
+
 test('a parent absent from the store resolves to unknown rather than zero', async () => {
   const persistence = { list: async () => [{ id: 'other' }] };
   assert.equal(await parentDepthOf(persistence, 'p1'), 0, 'present-but-depthless is depth 0');
